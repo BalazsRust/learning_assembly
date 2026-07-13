@@ -1,51 +1,17 @@
-section      .data                     ; this is where variables are initialized
-    msg      db   "Hello, World!", 0xa ; 0xa is a newline
-    msglen   equ  $ - msg
-    numb     db 0x41,0x53,0x53,0x4d,0x45,0x4d,0x42,0x4c,0x59, 0xa ; assembly in hex codes
-    numblen equ $ - numb
-    mov edi,1;loop varibale 
-    mov eax,0 ; counter
+global _start
 
-section      .text                     ; this is the code section
-    global   _start                    ; declare entry point
-_start:                                ; define entry point
-    mov rax, 1                         ; sys_write(
-    mov rdi, 1                         ;   STDOUT_FILENO,
-    mov rsi, msg                       ;   msg,
-    mov rdx, msglen                    ;   sizeof(msg)
-    syscall                            ; );
+section .data
 
-    mov rax, 1                         ; sys_write(
-    mov rdi, 1                         ;   STDOUT_FILENO,
-    mov rsi, numb                       ;   msg,
-    mov rdx, numblen                    ;   sizeof(numb)
-    syscall                            ; );
+my_arr: db 0x12,0x34,0x56,0x78,0x90
 
-    add eax,1 ; increment bit counter
-    add edi, edi ; add variable to itself
-    jo noes ; check for overflow in the above add
+    ; just as there is db there is also 
+    ; dd declare word (2 bytes)
+    ; dd: declare doubleword (4bytes)
+    ; dq; declare quadword (8 bytes)
 
+    ; litle endian meaning that the bytes order gets "reversed",the alst byte in the multi byte value goes first
 
+    litle_endian_beef: dw 0xbeef ; becomes 0xef 0xbe in that order i breaks up 0x(last 2) -> 0xfe then another 2 0xbe 
 
-    mov rax, 1                         ; sys_write(
-    mov eax, 0                         ;   STDOUT_FILENO,
-    mov eax, 1                       ;   msg,
-    mov rdx, numblen                    ;   sizeof(numb)
-    syscall                            ; );
-
-    cmp edi,0
-    jne _start 
-
-ret
-
-noes: ; called for overflow 
-    mov eax, 999 
-    ret    
-    mov rax, 60
-    mov rdi, 0
-    syscall
-
-    ; exit
-    mov rax, 60                        ; exit
-    mov rdi, 0                         ;   exit_status
-    syscall                            ; );
+    filled_with_zero:dw 0x42 ; becomes 0x42 0x00 in that order
+    
