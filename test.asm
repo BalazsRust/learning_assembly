@@ -1,187 +1,131 @@
 global _start
 
 section .data
-
-my_arr: db 0x12,0x34,0x56,0x78,0x90
-
-    ; just as there is db there is also 
-    ; dd declare word (2 bytes)
-    ; dd: declare doubleword (4bytes)
-    ; dq; declare quadword (8 bytes)
-
-    ; litle endian meaning that the bytes order gets "reversed",the alst byte in the multi byte value goes first
-
-    litle_endian_beef: dw 0xbeef ; becomes 0xef 0xbe in that order i breaks up 0x(last 2) -> 0xfe then another 2 0xbe 
-
-    filled_with_zero:dw 0x42 ; becomes 0x42 0x00 in that order
-
-    my_arr2:dw 0x9876,0x5432,0xAA
-    my_arr3: dd 0xdeadbeef, 0xc0ffee  ; 0xc0ffe -> 0xee -> 0xff -> 0xc0 0x00
-    my_arr4: dq 0x0102030405060708, 0x090a0b0c0d0e0f00
-
-    ; the equ directive sets a name to the value of an experssion.
-    ; Because this is an assembler directive, UNUSED is not written to 
-    ; the resulting program. This is similar to #define in c 
-
-    UNUSED: equ 3 
-
-section .text
-; the _start label ahs a special meaning it's the program's entry point,
-; i.e the first instruction to be excecuted is at this address.
-;
-_start:
-    ; all these are insturctions i.e operations the cpu know how 
-    ; to carry out directly. there is a full list of them in the 
-    ; inscrution set, but we'll only use a dozen or so.
-    ; Instuctions are seperated from their operands by whitespace,
-    ; and the operands are seperated from other with commas, like so;
-    ; <instuction> <operand1>, <operand2>, .... <operand_n>
-    ; The following instuctions are 'mov' which simply copy data.
-    ; In case of such instuctions, which have a source and 
-    ; a destination operand, the Interl syntax (which nasm uses)
-    ; dictates the first operand is the destination, and the second is 
-    ; the source
-    ; <insturction> DESTINATION, SOURCE 
-    ; Generally, the source and destination operands can be either 
-    ; an address or a register - a small storage that lives inside
-    ; the CPU. the source can also be an immediate value , i.e
-    ; a simple number.
-
-    mov rax,0 ; moves the value 0 to register rax
-
-    ; There are several registers avalible  on x86_64. Some serve
-    ; specific pupuses (e.g registers for stroing floating point numbers)
-    ; while others are called "general purpose" registers.
-    ; There are 16 of the,;
-
-    ; rax: accumulator
-    ; rbx: base;
-    ; rxc: counter
-    ; rdx: destination
-    ; rsp and rbp : stack pointer and base pointer
-    ; rsi and rdi : source and destinationn index
-    ; r8 through r15: lack of creativity
+    ; the Directive 'db' means 'decleare bytes', while the label 'str'
+    ; stores the address of the beggining of that string.
+    ; Note the string decleared is not null terminated, so we need
+    ; to keep track of its size, which we do next (with STRSIZE).
+    ; Also note that 0xA is the ascii value for Line Feed (newline, "\n").
     ;
-    ; the prefix 'r' in all those mean we want to use all 64 bits 
-    ; in the registers. For all those, expect r8 through 15,
-    ; It's possible to acces
-    ;   - the lowest 32 bits with 'e' prefix e.g eax, ebp
-    ;   - the lowest 16 bits withouth any prefix, e.g ax, si 
-    ; Als, for registers rax through rdx, it's possible to access:
-    ;   - the highest byte in the 16 bits with the 'h' suffix, in 
-    ;   the same way as above, e.g ah
-    ; This is summarized in figure 3-5 of section 3.4.1
-    ; basic architecture. These first 8 named registers and their extra
-    ; access modes are historical, dating back to the first Intel proccessors.
+    str: db "Tpye something and I'll repeat it!(max 64 bytes", 0xA
+
+    ; the lone '$' is the address the assembler is currently at,
+    ; so by substracting it from 'str' we get the number of bytes in
+    ; the decleared string (and that still works if we change the string (*),
+    ; since it's not a hardcoded size.)
     ;
-    ; (Note: we use 'byte' as a synonym of '8 bits', because it
-    ; indeed is in the x86 architecture.)
+    STRSIZE: equ $ - str
+
+    ; File descriptors
+    ; A file descriptor is a number used in Unix to refer to an open file.
+    ; Some special files are always open, and have fixed file descriptiors:
+    ;   stdin:  0
+    ;   stdout: 1
+    ;   stderr: 2
     ;
-    mov eax, 0x12345678 ; copies 4 bytes to eax
-    ; still copies 4 bytes to eax: the reaming 2 bytes are filled 
-    ; with zeroes, i.e this is the same as 
-    ; mov eax,0x0000abcd
-    ; note that this is different from 'mov ax, 0xabcd'
-    ; in that the previous instuction would only change the lowest 
-    ; 2 bytes of the register.
+    STDIN: equ 0
+    STDOUT: equ 1
+
+    ; We haven't used this section before: this is for unitialized space
+    ; (meaning we can't tell its contents at first), which gets reserved
+    ; when the program starts.
     ;
-    mov eax, 0xabcd
+    section .bss
+    ; resb : reserve bytes. (The argument is the number of bytes.)
+    buf: resb 64
+    BUF_SIZE: equ 64; keep the same number as above
 
-    ; copies to the lowest byte: now ax will be 0xab12
+    section .text
+    _start:
+    ; If you want to do anything actually useful in assembly,
+	; you'll need the OS's blessing through a system call.
+	; That's also the case for I/O: in order to write something
+	; to stdout, we'll need to use the 'write' system call.
+	; You can see the full list of system calls with
+	;	$ man 2 syscalls
+	; And you can see more info about the syscall <foo> with
+	;	$ man 2 <foo>
+	; From write's manpage:
+	;	ssize_t write(int fd, const void *buf, size_t count);
+	;	[...]
+	;	write() writes up to count bytes from the buffer starting
+	;	at buf to the file referred to by the file descriptor fd.
+	;
+	; All these mov instructions place the system call arguments
+	; where they should be (more on this later).
+	;
+    mov rax,1 ; __NR_write (more on this later
+    mov rdi, STDOUT
+    mov rsi, str
+    mov rdx, STRSIZE
 
-    mov al, 0x12
-    ;
-    mov ah, 0x34
+    ; In 64-bit mode, a system call is done with a dedicated 'syscall'
+	; instruction. In 32-bit, we'd need to use 'int 0x80'
+	; ('int' is the instruction for interrupt, 0x80 is the Linux
+	; kernel's interruption handler).
+	; The kernel knows which system call we want seeing the number
+	; in rax: it must be the number matching the system call.
+	; In 64 bits, those are defined in
+	;	/usr/include/asm/unistd_64.h
+	; as macros __NR_<foo>, where <foo> is the system call.
+	; The arguments to the system call are also passed in registers:
+	;	"The kernel interface uses %rdi, %rsi, %rdx, %r10, %r8
+	;	and %r9." (ABI, appendix A, section A.2.1)
+	; Which explains the previous 'mov' instructions.
+	;
+	syscall
 
-    ; and of course you can make arithemic too.
+    ; output works through a system call, and so does input,
+	; through the read system call. From read's manpage:
+	;	ssize_t read(int fd, void *buf, size_t count);
+	;	[...]
+	;	read() attempts to read up to count bytes from file
+	;	descriptor fd into the buffer starting at buf.
+	;
+	; Also, if the input has more bytes than count, the extra bytes
+	; won't be read. (*)
+	;
 
-    mov rdi, 10
-    mov rsi, 7
-    mov rbx, 14
+	; note: instead of
+	;	mov rax, 0
+	; we use the equivalent
+	;	xor rax, rax
+	; which makes an XOR of the two operands and stores the result
+	; in the first one, as is usual in the Intel syntax.
+	; XOR'ing a value with itself always gives zero, so those are in fact
+	; equivalent.
+	;
+	xor rax, rax ; __NR_read == 0
+	mov rdi, STDIN
+	mov rsi, buf
+	mov rdx, BUF_SIZE
+	syscall
 
-    inc rdi ; INC : increment
-    dec rsi ; DEC: decrement
+	; again from the read's manpage:
+	;	On success, the number of bytes read is returned [...]
+	;	It is not an error if this number is smaller than the
+	;	number of bytes requested; this may happen for example
+	;	because fewer bytes are actually available right now [...]
+	;
+	; We want to keep track of the return value so we can only
+	; write the number of bytes we've read.
+	; System calls always write their return value to rax.
+	; Since we need to write the number of the next system call
+	; to that register, we store the value in a different one.
+	;
+	mov rbx, rax
 
-    ; ADD : adds the two operands and stores the result in the destination
-    ; one (again, that's the first one, because we'are using Intel syntax.)
-    ;
-    add rdi,rbx ; Equivalent to rdi += rbx;
+	; now, write it back to stdout
+	mov rax, 1 ; __NR_write
+	mov rdi, STDOUT
+	mov rsi, buf
+	mov rdx, rbx ; get the size from where we stored it
+	syscall
 
-    sub rsi,rbx ; SUB: subtract. equivalent to rsi -= rbx
-
-    ; Naturally, we also have instuctions for multiplying and ividing 
-    ; integers, but they come with a few catches.
-    ; 
-    ; First, there's two variants for each: MUL and DIV interpret their
-    ; operands as unsigned integers, while IMUL and IDIV interpret their
-    ; operands as signed integers in two's complement
-    ; (This changes wether or not the operands' most significant bits are 
-    ; interpreted as sign bits).
-    ;
-    ; Second,while both multiplication and division need two numbers,
-    ; the MUL and DIV instructions can take a single operand because they use 
-    ; fixed registers for the other number.
-    ; For exa,ple, when a 64-bit operand is used in
-    ;
-    ;   - MUL, the result is rax * <operand>, and it's a 128-bit value
-    ;  stored in rdx:rax - meaning the 64 lower bits are stored in rdx
-    ;  while the 64 upper bits are stored in rax
-    ;
-    ; - DIV, the operand is the divisor and the dividend is rdx:rax,
-    ;   meaning it's a 128-bit value whose 64 upper bits are in rdx and 
-    ;   whole 64 lower bits are in rax. The quotient is a 64 bit value
-    ;   stored in rax, and the remainder is also a 64 bit value, stored 
-    ;   in rdx
-    ;
-    mov rax,7 
-    mov rdx 4 ; will be overwritten by mul
-    mov rdi, 3
-
-    mul rdi 
-    ; here rax <- 3 * 7 = 21 rdx <- 0 (*)
-
-    mov rax, 22
-    mov rdx, 0
-    mov rdi, 4
-    
-    div rdi
-    ; here rax is floor(22 /4) = 5, and rdx is 22 mod 4 = 2 (*)
-
-    ; finnally we ahve bitwise operations to 
-    mov rdi,0x35
-    mov rsi,0x44
-
-    and rdi,rsi ; bitwise AND
-    or rdi,rsi ; bitwise OR
-    xor rdi,rsi ; bitwise XOR
-
-    shr rsi,2 ; right (logical) bitshift: equivalnet to rsi >> 2
-    shl rsi,3 ; left (logical) bitshift: equivalent to rsi << 3
-
-    ; Note that there's SAR for arithmetic right shift.
-    ; Ther's also SAL, but it's equivalent to SHL.
-
-    ;the code below is a system calll to exit cleanly
-    ; we'll explain it in the next file.
-    ;
-    mov rax, 60
-    xor rdi,rdi 
-    syscall
-    ; Exercises
-;
-; === First Things First ===
-; Assemble and link this file into a program, then run it.
-; (The program should do nothing other than exit cleanly)
-;
-; === St Thomas' Wisdom ===
-; Verify all claims marked with (*).
-;	- Print a hexdump of the program to verify db, dw, etc. work as stated,
-;	including the endianess.
-;	- Run the program in gdb to verify that the instructions work as stated,
-;	stepping through each one and printing the affected registers' value
-;	as needed. (Refer to the "Debugging" section of README.md to learn how.)
-;
-; === Changing Stuff and Seeing What Happens ===
-;	- Comment out the syscall instruction and run again.
-;	- Change DIV's operand to zero and run again.
-;
+	; now we quit. Even that requires a system call: exit.
+	mov rax, 60
+	; The argument to exit is the status code: 0 indicates success,
+	; non-zero indicates failure.
+	;
+	xor rdi, rdi
+	syscall
